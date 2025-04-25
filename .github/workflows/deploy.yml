@@ -18,7 +18,11 @@ jobs:
 
       # Backend Deployment (Simulated Locally)
       - name: Build Backend Docker Image (Simulated)
-        if: github.event.commits.*.modified.any(startsWith('backend/')) || github.event.commits.*.added.any(startsWith('backend/')) || github.event.commits.*.removed.any(startsWith('backend/')) || github.event.commits.*.modified.any(eq('docker-compose.yaml'))
+        if: >-
+          github.event.commits.*.modified.any(commit => startsWith(commit.path, 'backend/')) ||
+          github.event.commits.*.added.any(commit => startsWith(commit.path, 'backend/')) ||
+          github.event.commits.*.removed.any(commit => startsWith(commit.path, 'backend/')) ||
+          github.event.commits.*.modified.any(commit => eq(commit.path, 'docker-compose.yaml'))
         run: |
           echo "Simulating Backend Docker Build..."
           docker build -t your_backend_image:latest -f backend/Dockerfile backend/.
@@ -26,7 +30,10 @@ jobs:
 
       # Frontend Deployment (Simulated Locally)
       - name: Build Frontend Docker Image (Simulated)
-        if: github.event.commits.*.modified.any(startsWith('frontend/')) || github.event.commits.*.added.any(startsWith('frontend/')) || github.event.commits.*.removed.any(startsWith('frontend/'))
+        if: >-
+          github.event.commits.*.modified.any(commit => startsWith(commit.path, 'frontend/')) ||
+          github.event.commits.*.added.any(commit => startsWith(commit.path, 'frontend/')) ||
+          github.event.commits.*.removed.any(commit => startsWith(commit.path, 'frontend/'))
         run: |
           echo "Simulating Frontend Docker Build..."
           docker build -t your_frontend_image:latest -f frontend/Dockerfile frontend/.
