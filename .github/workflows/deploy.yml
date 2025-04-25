@@ -8,8 +8,10 @@ on:
 env:
   DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
   DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-  DEPLOY_PORT: ${{ secrets.EC2_PORT || 22 }} # Agar aapne EC2_PORT naam se secret banaya hai toh woh use karein
+  DEPLOY_PORT: ${{ secrets.EC2_PORT || 22 }}
   PROJECT_PATH: /home/ubuntu/MERN-STACK-AZHAR      # Your project path on EC2
+  REPOSITORY_URL: https://github.com/${{ github.repository }} # Repository URL
+  REPOSITORY_BRANCH: main
 
 jobs:
   deploy:
@@ -28,24 +30,50 @@ jobs:
       - name: Deploy to EC2
         run: |
           ssh -o StrictHostKeyChecking=no ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }} -p ${{ env.DEPLOY_PORT }} "
-            # Check if project directory exists, if not create it and clone the repo
-            if [ ! -d \"${{ env.PROJECT_PATH }}\" ]; then
-              mkdir -p \"${{ env.PROJECT_PATH }}\"
-              cd \"${{ env.PROJECT_PATH }}\"
-              git clone -b ${{ env.REPOSITORY_BRANCH }} \"${{ env.REPOSITORY_URL }}\" .
+            # Navigate to the project directory
+            cd \"${{ env.PROJECT_PATH }}\" || {
+              echo \"Error: Could not navigate to project directory.\"
+              exit 1
+            }
+
+            # Check if it's a git repository, if not clone
+            if [ ! -d \".git\" ]; then
+              echo \"Not a git repository, cloning...\"
+              git clone -b ${{ env.REPOSITORY_BRANCH }} \"${{ env.REPOSITORY_URL }}\" . || {
+                echo \"Error: Git clone failed.\"
+                exit 1
+              }
             else
-              cd \"${{ env.PROJECT_PATH }}\"
-              git pull origin ${{ env.REPOSITORY_BRANCH }}
+              echo \"Pulling latest changes...\"
+              git pull origin ${{ env.REPOSITORY_BRANCH }} || {
+                echo \"Error: Git pull failed.\"
+                exit 1
+              }
+            fi
+
+            # Check if docker-compose.yml exists
+            if [ ! -f \"docker-compose.yml\" ] && [ ! -f \"docker-compose.yaml\" ] && [ ! -f \"compose.yml\" ] && [ ! -f \"compose.yaml\" ]; then
+              echo \"Error: docker-compose.yml or docker-compose.yaml or compose.yml or compose.yaml not found in project root.\"
+              exit 1
             fi
 
             # Run Docker Compose commands
             if command -v docker-compose &> /dev/null
             then
-              docker-compose down
-              docker-compose up -d --build
-              docker image prune -af
+              echo \"Running docker-compose...\"
+              docker-compose down || echo \"Warning: docker-compose down failed.\"
+              docker-compose up -d --build || {
+                echo \"Error: docker-compose up failed.\"
+                exit 1
+              }
+              docker image prune -af || echo \"Warning: docker image prune failed.\"
             else
               echo \"Error: docker-compose command not found. Please ensure Docker Compose is installed on the EC2 instance.\"
               exit 1
             fi
+
+            # Fix Docker permission (add user to docker group) - Requires sudo, might need passwordless sudo
+            sudo usermod -aG docker ${{ env.DEPLOY_USER }}
+            newgrp docker || true # Try to switch group, ignore failure
+            echo \"Docker permissions updated (might require logout/login or new session).\"
           "
