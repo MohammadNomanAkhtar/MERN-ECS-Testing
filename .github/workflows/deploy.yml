@@ -1,0 +1,43 @@
+name: Auto Deploy on Push (Local Simulation)
+
+on:
+  push:
+    branches:
+      - main  # Aap apni default branch ka naam yahan specify karein
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v2
+
+      # Backend Deployment (Simulated Locally)
+      - name: Build Backend Docker Image (Simulated)
+        if: github.event.commits.*.modified.any(startsWith('backend/')) || github.event.commits.*.added.any(startsWith('backend/')) || github.event.commits.*.removed.any(startsWith('backend/')) || github.event.commits.*.modified.any(eq('docker-compose.yaml'))
+        run: |
+          echo "Simulating Backend Docker Build..."
+          docker build -t your_backend_image:latest -f backend/Dockerfile backend/.
+          echo "Backend Docker Image Built (Simulated)."
+
+      # Frontend Deployment (Simulated Locally)
+      - name: Build Frontend Docker Image (Simulated)
+        if: github.event.commits.*.modified.any(startsWith('frontend/')) || github.event.commits.*.added.any(startsWith('frontend/')) || github.event.commits.*.removed.any(startsWith('frontend/'))
+        run: |
+          echo "Simulating Frontend Docker Build..."
+          docker build -t your_frontend_image:latest -f frontend/Dockerfile frontend/.
+          echo "Frontend Docker Image Built (Simulated)."
+
+      # Deployment (Simulated Locally)
+      - name: Simulate Deployment
+        run: |
+          echo "Simulating Deployment on Local Environment..."
+          echo "Pulling latest changes (simulated): git pull origin main"
+          echo "Stopping existing containers (simulated): docker-compose down"
+          echo "Starting containers with build (simulated): docker-compose up -d --build"
+          echo "Pruning unused images (simulated): docker image prune -af"
+          echo "Deployment Simulation Complete."
