@@ -43,3 +43,5 @@ jobs:
           echo "Starting containers with build (simulated): docker-compose up -d --build"
           echo "Pruning unused images (simulated): docker image prune -af"
           echo "Deployment Simulation Complete."
+
+        #kkk
