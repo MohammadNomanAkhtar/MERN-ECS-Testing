@@ -22,7 +22,7 @@ env:
   ECS_TASK_EXECUTION_ROLE_ARN: arn:aws:iam::678878256416:role/ecsTaskExecutionRole # Your provided Execution Role ARN
   # ECS_TASK_ROLE_ARN: Removed from here, as per your request.
   TASK_CPU: 2048 # 2vCPU
-  TASK_MEMORY: 4192 # 4GB
+  TASK_MEMORY: 4096 # 4GB
 
   # --- Frontend Configuration ---
   FRONTEND_ECR_REPOSITORY_NAME: my-mern-app-frontend
