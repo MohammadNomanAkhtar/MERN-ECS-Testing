@@ -28,14 +28,14 @@ env:
   FRONTEND_ECR_REPOSITORY_NAME: my-mern-app-frontend
   FRONTEND_CONTAINER_NAME: my-mern-frontend-container
   FRONTEND_DOCKERFILE_PATH: ./mern/frontend
-  FRONTEND_CONTAINER_PORT: 3000 # Make sure your Dockerfile EXPOSEs this port
+  FRONTEND_CONTAINER_PORT: 5173 # Make sure your Dockerfile EXPOSEs this port
   FRONTEND_HEALTH_CHECK_PATH: / # Path for container health check (adjust if needed)
 
   # --- Backend Configuration ---
   BACKEND_ECR_REPOSITORY_NAME: my-mern-app-backend
   BACKEND_CONTAINER_NAME: my-mern-backend-container
   BACKEND_DOCKERFILE_PATH: ./mern/backend
-  BACKEND_CONTAINER_PORT: 5000 # Make sure your Dockerfile EXPOSEs this port
+  BACKEND_CONTAINER_PORT: 5050 # Make sure your Dockerfile EXPOSEs this port
   BACKEND_HEALTH_CHECK_PATH: /health # Path for container health check (adjust if needed)
   
 jobs:
