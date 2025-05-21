@@ -1,4 +1,4 @@
-name: Multi-Container ECS Fargate Deploy on Push
+name: Multi-Container ECS Fargate Deploy (Create/Update Infra)
 
 on:
   push:
@@ -8,18 +8,35 @@ on:
 env:
   # === AWS Configuration (Update these values with your actual AWS details) ===
   AWS_REGION: us-east-1              # Your AWS region (e.g., ap-south-1).
+  
+  # === ECS Cluster Configuration ===
   ECS_CLUSTER_NAME: my-mern-cluster  # The name of your ECS Cluster.
+
+  # === ECS Service Configuration ===
   ECS_SERVICE_NAME: my-mern-service  # The name of your ECS Service.
+  VPC_ID: vpc-0aac057eb5e51b176      # YOUR VPC ID
+  SUBNET_IDS: subnet-007bea8f5c9577c4d,subnet-0d7e4d955f8d33774 # YOUR SUBNET IDs (comma-separated)
+  SECURITY_GROUP_IDS: sg-011b8b9d94c602274 # YOUR SECURITY GROUP ID
+
+  # === Task Definition Configuration ===
+  ECS_TASK_EXECUTION_ROLE_ARN: arn:aws:iam::678878256416:role/ecsTaskExecutionRole # Your provided Execution Role ARN
+  # ECS_TASK_ROLE_ARN: Removed from here, as per your request.
+  TASK_CPU: 1024 # 1vCPU
+  TASK_MEMORY: 2048 # 2GB
 
   # --- Frontend Configuration ---
-  FRONTEND_ECR_REPOSITORY_NAME: my-mern-app-frontend   # ECR repository for frontend.
-  FRONTEND_CONTAINER_NAME: my-mern-frontend-container  # Name of frontend container in Task Definition.
-  FRONTEND_DOCKERFILE_PATH: ./mern/frontend            # Path to frontend Dockerfile directory.
+  FRONTEND_ECR_REPOSITORY_NAME: my-mern-app-frontend
+  FRONTEND_CONTAINER_NAME: my-mern-frontend-container
+  FRONTEND_DOCKERFILE_PATH: ./mern/frontend
+  FRONTEND_CONTAINER_PORT: 3000 # Make sure your Dockerfile EXPOSEs this port
+  FRONTEND_HEALTH_CHECK_PATH: / # Path for container health check (adjust if needed)
 
   # --- Backend Configuration ---
-  BACKEND_ECR_REPOSITORY_NAME: my-mern-app-backend     # ECR repository for backend.
-  BACKEND_CONTAINER_NAME: my-mern-backend-container    # Name of backend container in Task Definition.
-  BACKEND_DOCKERFILE_PATH: ./mern/backend              # Path to backend Dockerfile directory.
+  BACKEND_ECR_REPOSITORY_NAME: my-mern-app-backend
+  BACKEND_CONTAINER_NAME: my-mern-backend-container
+  BACKEND_DOCKERFILE_PATH: ./mern/backend
+  BACKEND_CONTAINER_PORT: 5000 # Make sure your Dockerfile EXPOSEs this port
+  BACKEND_HEALTH_CHECK_PATH: /health # Path for container health check (adjust if needed)
   
 jobs:
   deploy:
@@ -31,7 +48,6 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          # Make sure these secret names are correct in your GitHub repository settings!
           aws-access-key-id: ${{ secrets.ACCESS_KEY_ID }} 
           aws-secret-access-key: ${{ secrets.SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
@@ -44,7 +60,7 @@ jobs:
       - name: Create Frontend ECR Repository
         run: |
           echo "Checking for ECR repository: ${{ env.FRONTEND_ECR_REPOSITORY_NAME }}"
-          aws ecr describe-repositories --repository-names ${{ env.FRONTEND_ECR_REPOSITORY_NAME }} --region ${{ env.AWS_REGION }} || \
+          aws ecr describe-repositories --repository-names ${{ env.FRONTEND_ECR_REPOSITORY_NAME }} --region ${{ env.AWS_REGION }} > /dev/null 2>&1 || \
           (echo "Repository not found, creating..." && aws ecr create-repository --repository-name ${{ env.FRONTEND_ECR_REPOSITORY_NAME }} --region ${{ env.AWS_REGION }})
           echo "Frontend ECR repository ready."
 
@@ -52,7 +68,7 @@ jobs:
       - name: Create Backend ECR Repository
         run: |
           echo "Checking for ECR repository: ${{ env.BACKEND_ECR_REPOSITORY_NAME }}"
-          aws ecr describe-repositories --repository-names ${{ env.BACKEND_ECR_REPOSITORY_NAME }} --region ${{ env.AWS_REGION }} || \
+          aws ecr describe-repositories --repository-names ${{ env.BACKEND_ECR_REPOSITORY_NAME }} --region ${{ env.AWS_REGION }} > /dev/null 2>&1 || \
           (echo "Repository not found, creating..." && aws ecr create-repository --repository-name ${{ env.BACKEND_ECR_REPOSITORY_NAME }} --region ${{ env.AWS_REGION }})
           echo "Backend ECR repository ready."
 
@@ -86,75 +102,153 @@ jobs:
           
           echo "BACKEND_IMAGE_URI=$ECR_REGISTRY/$BACKEND_ECR_REPOSITORY_NAME:$IMAGE_TAG" >> $GITHUB_ENV
 
+      # === Check/Create ECS Cluster ===
+      - name: Check or Create ECS Cluster
+        id: create-cluster
+        run: |
+          echo "Checking for ECS Cluster: ${{ env.ECS_CLUSTER_NAME }}"
+          CLUSTER_STATUS=$(aws ecs describe-clusters --cluster ${{ env.ECS_CLUSTER_NAME }} --query 'clusters[0].status' --output text --region ${{ env.AWS_REGION }} 2>/dev/null)
+          
+          if [ "$CLUSTER_STATUS" == "ACTIVE" ]; then
+            echo "ECS Cluster '${{ env.ECS_CLUSTER_NAME }}' already exists and is active."
+          else
+            echo "ECS Cluster '${{ env.ECS_CLUSTER_NAME }}' not found or not active, creating..."
+            aws ecs create-cluster --cluster-name ${{ env.ECS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+            echo "ECS Cluster created."
+          fi
+          echo "ECS Cluster ready."
+          
+      # === Generate and Register New ECS Task Definition ===
       - name: Generate and Register New ECS Task Definition
         id: register-task-definition
         run: |
-          echo "Attempting to fetch existing active task definition for service: ${{ env.ECS_SERVICE_NAME }}"
-          
-          CURRENT_TASK_DEF_ARN=$(aws ecs describe-services \
-                                --cluster "${{ env.ECS_CLUSTER_NAME }}" \
-                                --services "${{ env.ECS_SERVICE_NAME }}" \
-                                --query 'services[0].taskDefinition' \
-                                --output text)
-          
-          if [ -z "$CURRENT_TASK_DEF_ARN" ] || [ "$CURRENT_TASK_DEF_ARN" == "None" ]; then
-            echo "Error: Could not find current task definition for service '${{ env.ECS_SERVICE_NAME }}'."
-            echo "Please ensure the service is running and has an associated task definition in AWS Console."
-            exit 1
-          fi
+          FRONTEND_IMAGE_URI="${{ env.FRONTEND_IMAGE_URI }}"
+          BACKEND_IMAGE_URI="${{ env.BACKEND_IMAGE_URI }}"
 
-          echo "Found current task definition ARN: $CURRENT_TASK_DEF_ARN"
-          
-          TASK_DEF_JSON=$(aws ecs describe-task-definition \
-                          --task-definition "$CURRENT_TASK_DEF_ARN" \
-                          --query 'taskDefinition' \
-                          --output json)
-          
-          if [ -z "$TASK_DEF_JSON" ] || ! echo "$TASK_DEF_JSON" | jq -e '.containerDefinitions | type == "array"' > /dev/null; then
-            echo "Error: Could not retrieve valid task definition or container definitions from current ARN."
-            exit 1
-          fi
-
-          echo "Original Task Definition JSON fetched successfully."
-
-          # Dynamically update both frontend and backend container images
-          UPDATED_TASK_DEF=$(echo "$TASK_DEF_JSON" | jq \
-            --arg FRONTEND_CONTAINER_NAME "${{ env.FRONTEND_CONTAINER_NAME }}" \
-            --arg FRONTEND_IMAGE_URI "${{ env.FRONTEND_IMAGE_URI }}" \
-            --arg BACKEND_CONTAINER_NAME "${{ env.BACKEND_CONTAINER_NAME }}" \
-            --arg BACKEND_IMAGE_URI "${{ env.BACKEND_IMAGE_URI }}" \
-            '
-            .containerDefinitions |= map(
-              if .name == $FRONTEND_CONTAINER_NAME then
-                .image = $FRONTEND_IMAGE_URI
-              elif .name == $BACKEND_CONTAINER_NAME then
-                .image = $BACKEND_IMAGE_URI
-              else
-                .
-              end
-            )
-            | del(.taskDefinitionArn)
-            | del(.revision)
-            | del(.status)
-            | del(.compatibilities)
-            | del(.requiresAttributes)'
+          TASK_DEFINITION_JSON=$(jq -n \
+            --arg frontend_name "${{ env.FRONTEND_CONTAINER_NAME }}" \
+            --arg frontend_image "$FRONTEND_IMAGE_URI" \
+            --arg frontend_port "${{ env.FRONTEND_CONTAINER_PORT }}" \
+            --arg frontend_health_path "${{ env.FRONTEND_HEALTH_CHECK_PATH }}" \
+            --arg backend_name "${{ env.BACKEND_CONTAINER_NAME }}" \
+            --arg backend_image "$BACKEND_IMAGE_URI" \
+            --arg backend_port "${{ env.BACKEND_CONTAINER_PORT }}" \
+            --arg backend_health_path "${{ env.BACKEND_HEALTH_CHECK_PATH }}" \
+            --arg task_cpu "${{ env.TASK_CPU }}" \
+            --arg task_memory "${{ env.TASK_MEMORY }}" \
+            --arg execution_role "${{ env.ECS_TASK_EXECUTION_ROLE_ARN }}" \
+            '{
+              "family": "${{ env.ECS_SERVICE_NAME }}-task-definition",
+              "networkMode": "awsvpc",
+              "requiresCompatibilities": ["FARGATE"],
+              "cpu": $task_cpu,
+              "memory": $task_memory,
+              "executionRoleArn": $execution_role,
+              "containerDefinitions": [
+                {
+                  "name": $frontend_name,
+                  "image": $frontend_image,
+                  "cpu": ($task_cpu | tonumber / 2),
+                  "memory": ($task_memory | tonumber / 2),
+                  "essential": true,
+                  "portMappings": [
+                    {
+                      "containerPort": ($frontend_port | tonumber),
+                      "hostPort": ($frontend_port | tonumber),
+                      "protocol": "tcp"
+                    }
+                  ],
+                  "logConfiguration": {
+                    "logDriver": "awslogs",
+                    "options": {
+                      "awslogs-group": "/ecs/my-mern-app",
+                      "awslogs-region": "${{ env.AWS_REGION }}",
+                      "awslogs-stream-prefix": "frontend"
+                    }
+                  },
+                  "healthCheck": {
+                    "command": ["CMD-SHELL", "curl -f http://localhost:\($frontend_port)/ || exit 1"],
+                    "interval": 30,
+                    "timeout": 5,
+                    "retries": 3,
+                    "startPeriod": 15
+                  }
+                },
+                {
+                  "name": $backend_name,
+                  "image": $backend_image,
+                  "cpu": ($task_cpu | tonumber / 2),
+                  "memory": ($task_memory | tonumber / 2),
+                  "essential": true,
+                  "portMappings": [
+                    {
+                      "containerPort": ($backend_port | tonumber),
+                      "hostPort": ($backend_port | tonumber),
+                      "protocol": "tcp"
+                    }
+                  ],
+                  "logConfiguration": {
+                    "logDriver": "awslogs",
+                    "options": {
+                      "awslogs-group": "/ecs/my-mern-app",
+                      "awslogs-region": "${{ env.AWS_REGION }}",
+                      "awslogs-stream-prefix": "backend"
+                    }
+                  },
+                  "healthCheck": {
+                    "command": ["CMD-SHELL", "curl -f http://localhost:\($backend_port)/health || exit 1"],
+                    "interval": 30,
+                    "timeout": 5,
+                    "retries": 3,
+                    "startPeriod": 15
+                  }
+                }
+              ]
+            }'
           )
 
-          echo "Updated Task Definition JSON with new image URIs for both containers."
-          
-          REGISTERED_TASK_DEF=$(aws ecs register-task-definition --cli-input-json "$UPDATED_TASK_DEF")
+          echo "Generated Task Definition JSON:"
+          echo "$TASK_DEFINITION_JSON" | jq .
+
+          REGISTERED_TASK_DEF=$(aws ecs register-task-definition --cli-input-json "$TASK_DEFINITION_JSON" --region ${{ env.AWS_REGION }})
           NEW_TASK_DEF_ARN=$(echo "$REGISTERED_TASK_DEF" | jq -r '.taskDefinition.taskDefinitionArn')
 
           echo "Registered new task definition ARN: $NEW_TASK_DEF_ARN"
           echo "TASK_DEFINITION_ARN=$NEW_TASK_DEF_ARN" >> $GITHUB_ENV
 
-      - name: Update ECS Service
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-        with:
-          task-definition: ${{ env.TASK_DEFINITION_ARN }}
-          service: ${{ env.ECS_SERVICE_NAME }}
-          cluster: ${{ env.ECS_CLUSTER_NAME }}
-          wait-for-service-stability: true
+
+      # === Check/Create/Update ECS Service ===
+      - name: Check or Create/Update ECS Service
+        id: create-update-service
+        run: |
+          SERVICE_COUNT=$(aws ecs describe-services --cluster ${{ env.ECS_CLUSTER_NAME }} --services ${{ env.ECS_SERVICE_NAME }} --query 'services | length' --region ${{ env.AWS_REGION }} 2>/dev/null)
+
+          if [ "$SERVICE_COUNT" -gt 0 ]; then
+            echo "ECS Service '${{ env.ECS_SERVICE_NAME }}' already exists, updating..."
+            aws ecs update-service \
+              --cluster ${{ env.ECS_CLUSTER_NAME }} \
+              --service ${{ env.ECS_SERVICE_NAME }} \
+              --task-definition ${{ env.TASK_DEFINITION_ARN }} \
+              --desired-count 1 \
+              --force-new-deployment \
+              --region ${{ env.AWS_REGION }}
+            echo "ECS Service updated."
+          else
+            echo "ECS Service '${{ env.ECS_SERVICE_NAME }}' not found, creating..."
+            aws ecs create-service \
+              --cluster ${{ env.ECS_CLUSTER_NAME }} \
+              --service-name ${{ env.ECS_SERVICE_NAME }} \
+              --task-definition ${{ env.TASK_DEFINITION_ARN }} \
+              --desired-count 1 \
+              --launch-type "FARGATE" \
+              --network-configuration "awsvpcConfiguration={subnets=[${{ env.SUBNET_IDS }}],securityGroups=[${{ env.SECURITY_GROUP_IDS }}],assignPublicIp=ENABLED}" \
+              --platform-version "LATEST" \
+              --region ${{ env.AWS_REGION }}
+            echo "ECS Service created."
+          fi
+          echo "Waiting for service stability..."
+          aws ecs wait services-stable --cluster ${{ env.ECS_CLUSTER_NAME }} --services ${{ env.ECS_SERVICE_NAME }} --region ${{ env.AWS_REGION }}
+          echo "ECS Service is stable."
           
       - name: Cleanup old Docker images (optional, for GitHub Actions runner)
         if: always()
