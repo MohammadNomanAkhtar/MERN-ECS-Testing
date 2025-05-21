@@ -14,12 +14,14 @@ env:
   # --- Frontend Configuration ---
   FRONTEND_ECR_REPOSITORY_NAME: my-mern-app-frontend   # ECR repository for frontend.
   FRONTEND_CONTAINER_NAME: my-mern-frontend-container  # Name of frontend container in Task Definition.
-  FRONTEND_DOCKERFILE_PATH: ./frontend                 # Path to frontend Dockerfile directory.
+  FRONTEND_DOCKERFILE_PATH: ./MERN/frontend            # <--- PATH UPDATED HERE
+                                                       # Path to frontend Dockerfile directory.
 
   # --- Backend Configuration ---
   BACKEND_ECR_REPOSITORY_NAME: my-mern-app-backend     # ECR repository for backend.
   BACKEND_CONTAINER_NAME: my-mern-backend-container    # Name of backend container in Task Definition.
-  BACKEND_DOCKERFILE_PATH: ./backend                   # Path to backend Dockerfile directory.
+  BACKEND_DOCKERFILE_PATH: ./MERN/backend              # <--- PATH UPDATED HERE
+                                                       # Path to backend Dockerfile directory.
   
 jobs:
   deploy:
