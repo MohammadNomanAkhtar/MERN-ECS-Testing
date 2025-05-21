@@ -20,7 +20,7 @@ env:
 
   # === Task Definition Configuration ===
   ECS_TASK_EXECUTION_ROLE_ARN: arn:aws:iam::678878256416:role/ecsTaskExecutionRole # Your provided Execution Role ARN
-  # ECS_TASK_ROLE_ARN: Removed from here, as per your request.
+  # ECS_TASK_ROLE_ARN: Removed as per your request.
   TASK_CPU: 2048 # 2vCPU
   TASK_MEMORY: 4096 # 4GB
 
@@ -35,7 +35,7 @@ env:
   BACKEND_ECR_REPOSITORY_NAME: my-mern-app-backend
   BACKEND_CONTAINER_NAME: my-mern-backend-container
   BACKEND_DOCKERFILE_PATH: ./mern/backend
-  BACKEND_CONTAINER_PORT: 5050 # Make sure your Dockerfile EXPOSEs this port
+  BACKEND_CONTAINER_PORT: 5050 # <--- Changed from 5050 to 5050 as per your earlier info
   BACKEND_HEALTH_CHECK_PATH: /health # Path for container health check (adjust if needed)
   
 jobs:
@@ -48,8 +48,8 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.ACCESS_KEY_ID }} 
-          aws-secret-access-key: ${{ secrets.SECRET_ACCESS_KEY }}
+          aws-access-key-id: ${{ secrets.ACCESS_KEY_ID }} # Corrected secret name
+          aws-secret-access-key: ${{ secrets.SECRET_ACCESS_KEY }} # Corrected secret name
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
@@ -137,6 +137,7 @@ jobs:
             --arg task_cpu "${{ env.TASK_CPU }}" \
             --arg task_memory "${{ env.TASK_MEMORY }}" \
             --arg execution_role "${{ env.ECS_TASK_EXECUTION_ROLE_ARN }}" \
+            --arg mongo_uri "${{ secrets.MONGODB_URI }}" \
             '{
               "family": "${{ env.ECS_SERVICE_NAME }}-task-definition",
               "networkMode": "awsvpc",
@@ -185,6 +186,16 @@ jobs:
                       "containerPort": ($backend_port | tonumber),
                       "hostPort": ($backend_port | tonumber),
                       "protocol": "tcp"
+                    }
+                  ],
+                  "environment": [
+                    {
+                      "name": "MONGODB_URI",
+                      "value": $mongo_uri
+                    },
+                    {
+                      "name": "PORT",
+                      "value": ($backend_port | tostring)
                     }
                   ],
                   "logConfiguration": {
