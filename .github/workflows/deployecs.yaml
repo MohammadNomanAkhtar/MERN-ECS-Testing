@@ -14,13 +14,13 @@ env:
   # --- Frontend Configuration ---
   FRONTEND_ECR_REPOSITORY_NAME: my-mern-app-frontend   # ECR repository for frontend.
   FRONTEND_CONTAINER_NAME: my-mern-frontend-container  # Name of frontend container in Task Definition.
-  FRONTEND_DOCKERFILE_PATH: ./MERN/frontend            # <--- PATH UPDATED HERE
+  FRONTEND_DOCKERFILE_PATH: ./mern/frontend            # <--- PATH UPDATED TO SMALL 'm'
                                                        # Path to frontend Dockerfile directory.
 
   # --- Backend Configuration ---
   BACKEND_ECR_REPOSITORY_NAME: my-mern-app-backend     # ECR repository for backend.
   BACKEND_CONTAINER_NAME: my-mern-backend-container    # Name of backend container in Task Definition.
-  BACKEND_DOCKERFILE_PATH: ./MERN/backend              # <--- PATH UPDATED HERE
+  BACKEND_DOCKERFILE_PATH: ./mern/backend              # <--- PATH UPDATED TO SMALL 'm'
                                                        # Path to backend Dockerfile directory.
   
 jobs:
@@ -49,10 +49,10 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           echo "Building Frontend Docker image from context: ${{ env.FRONTEND_DOCKERFILE_PATH }}"
-          docker build -t $ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY_NAME:$IMAGE_TAG ${{ env.FRONTEND_DOCKERFILE_PATH }}
+          docker build -t "$ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY_NAME:$IMAGE_TAG" "${{ env.FRONTEND_DOCKERFILE_PATH }}"
           
           echo "Pushing Frontend Docker image to ECR..."
-          docker push $ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY_NAME:$IMAGE_TAG
+          docker push "$ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY_NAME:$IMAGE_TAG"
           
           echo "FRONTEND_IMAGE_URI=$ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY_NAME:$IMAGE_TAG" >> $GITHUB_ENV
 
@@ -64,10 +64,10 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           echo "Building Backend Docker image from context: ${{ env.BACKEND_DOCKERFILE_PATH }}"
-          docker build -t $ECR_REGISTRY/$BACKEND_ECR_REPOSITORY_NAME:$IMAGE_TAG ${{ env.BACKEND_DOCKERFILE_PATH }}
+          docker build -t "$ECR_REGISTRY/$BACKEND_ECR_REPOSITORY_NAME:$IMAGE_TAG" "${{ env.BACKEND_DOCKERFILE_PATH }}"
           
           echo "Pushing Backend Docker image to ECR..."
-          docker push $ECR_REGISTRY/$BACKEND_ECR_REPOSITORY_NAME:$IMAGE_TAG
+          docker push "$ECR_REGISTRY/$BACKEND_ECR_REPOSITORY_NAME:$IMAGE_TAG"
           
           echo "BACKEND_IMAGE_URI=$ECR_REGISTRY/$BACKEND_ECR_REPOSITORY_NAME:$IMAGE_TAG" >> $GITHUB_ENV
 
