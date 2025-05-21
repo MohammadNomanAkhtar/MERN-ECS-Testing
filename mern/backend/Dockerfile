@@ -1,14 +1,32 @@
-FROM node:18.9.1
+# Stage 1: Install dependencies and build if necessary
+FROM node:20-alpine AS build
 
 WORKDIR /app
 
-COPY package.json .
+# Copy package.json and package-lock.json first
+COPY package*.json ./
 
-RUN npm install
+# Install production dependencies
+# If your backend has a 'build' step (e.g., TypeScript compilation), add it here
+RUN npm install --production
 
+# Copy the rest of your app's source code
 COPY . .
 
-EXPOSE 5050
+# Stage 2: Run the application
+FROM node:20-alpine AS production
 
+WORKDIR /app
+
+# Copy only the necessary files from the build stage
+# This includes node_modules and your application code
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app .
+
+# Expose the port your backend Express/Node.js app listens on
+EXPOSE 21707 # Make sure this matches your Express app's listen port (21707 as per your earlier info)
+
+# Command to run the backend server in the foreground
+# Ensure your 'start' script in package.json runs `node server.js` or similar
+# that keeps the process running.
 CMD ["npm", "start"]
-
