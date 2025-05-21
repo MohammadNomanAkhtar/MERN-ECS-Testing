@@ -24,7 +24,7 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app .
 
 # Expose the port your backend Express/Node.js app listens on
-EXPOSE 21707 # Make sure this matches your Express application's listen port (21707 as per your earlier info)
+EXPOSE 5050
 
 # Command to run the backend server in the foreground
 # Ensure your 'start' script in package.json runs `node server.js` or similar
