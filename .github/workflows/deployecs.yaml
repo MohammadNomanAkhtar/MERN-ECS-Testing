@@ -14,14 +14,12 @@ env:
   # --- Frontend Configuration ---
   FRONTEND_ECR_REPOSITORY_NAME: my-mern-app-frontend   # ECR repository for frontend.
   FRONTEND_CONTAINER_NAME: my-mern-frontend-container  # Name of frontend container in Task Definition.
-  FRONTEND_DOCKERFILE_PATH: ./mern/frontend            # <--- PATH UPDATED TO SMALL 'm'
-                                                       # Path to frontend Dockerfile directory.
+  FRONTEND_DOCKERFILE_PATH: ./mern/frontend            # Path to frontend Dockerfile directory.
 
   # --- Backend Configuration ---
   BACKEND_ECR_REPOSITORY_NAME: my-mern-app-backend     # ECR repository for backend.
   BACKEND_CONTAINER_NAME: my-mern-backend-container    # Name of backend container in Task Definition.
-  BACKEND_DOCKERFILE_PATH: ./mern/backend              # <--- PATH UPDATED TO SMALL 'm'
-                                                       # Path to backend Dockerfile directory.
+  BACKEND_DOCKERFILE_PATH: ./mern/backend              # Path to backend Dockerfile directory.
   
 jobs:
   deploy:
@@ -33,13 +31,30 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.ACCESS_KEY_ID }}
+          # Make sure these secret names are correct in your GitHub repository settings!
+          aws-access-key-id: ${{ secrets.ACCESS_KEY_ID }} 
           aws-secret-access-key: ${{ secrets.SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
+
+      # === Create Frontend ECR Repository if it doesn't exist ===
+      - name: Create Frontend ECR Repository
+        run: |
+          echo "Checking for ECR repository: ${{ env.FRONTEND_ECR_REPOSITORY_NAME }}"
+          aws ecr describe-repositories --repository-names ${{ env.FRONTEND_ECR_REPOSITORY_NAME }} --region ${{ env.AWS_REGION }} || \
+          (echo "Repository not found, creating..." && aws ecr create-repository --repository-name ${{ env.FRONTEND_ECR_REPOSITORY_NAME }} --region ${{ env.AWS_REGION }})
+          echo "Frontend ECR repository ready."
+
+      # === Create Backend ECR Repository if it doesn't exist ===
+      - name: Create Backend ECR Repository
+        run: |
+          echo "Checking for ECR repository: ${{ env.BACKEND_ECR_REPOSITORY_NAME }}"
+          aws ecr describe-repositories --repository-names ${{ env.BACKEND_ECR_REPOSITORY_NAME }} --region ${{ env.AWS_REGION }} || \
+          (echo "Repository not found, creating..." && aws ecr create-repository --repository-name ${{ env.BACKEND_ECR_REPOSITORY_NAME }} --region ${{ env.AWS_REGION }})
+          echo "Backend ECR repository ready."
 
       # === Build and Push Frontend Image ===
       - name: Build and Push Frontend Docker Image to ECR
