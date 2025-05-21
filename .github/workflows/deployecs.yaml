@@ -16,7 +16,7 @@ env:
   ECS_SERVICE_NAME: my-mern-service  # The name of your ECS Service.
   VPC_ID: vpc-0aac057eb5e51b176      # YOUR VPC ID
   SUBNET_IDS: subnet-007bea8f5c9577c4d,subnet-0d7e4d955f8d33774 # YOUR SUBNET IDs (comma-separated)
-  SECURITY_GROUP_IDS: sg-011b8b9d94c602274 # YOUR SECURITY GROUP ID
+  SECURITY_GROUP_IDS: sg-00e2ebce3a7b1531f # YOUR SECURITY GROUP ID
 
   # === Task Definition Configuration ===
   ECS_TASK_EXECUTION_ROLE_ARN: arn:aws:iam::678878256416:role/ecsTaskExecutionRole # Your provided Execution Role ARN
