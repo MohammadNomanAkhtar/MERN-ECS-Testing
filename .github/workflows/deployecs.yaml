@@ -1,22 +1,26 @@
-name: Full ECS Fargate Deploy on Push
+name: Multi-Container ECS Fargate Deploy on Push
 
 on:
   push:
     branches:
-      - main # Workflow will trigger on push to the main branch
+      - main # Workflow will trigger on pushes to the 'main' branch.
 
 env:
   # === AWS Configuration (Update these values with your actual AWS details) ===
-  AWS_REGION: us-east-1              # Your AWS region (e.g., ap-south-1 for Mumbai)
-  ECR_REPOSITORY_NAME: my-mern-app   # The name of your ECR repository (e.g., my-mern-app)
-  ECS_CLUSTER_NAME: my-mern-cluster  # The name of your ECS Cluster (e.g., my-mern-cluster)
-  ECS_SERVICE_NAME: my-mern-service  # The name of your ECS Service (e.g., my-mern-service)
-  CONTAINER_NAME: my-mern-container  # The exact name of your container within the ECS Task Definition (CRUCIAL!)
+  AWS_REGION: us-east-1              # Your AWS region (e.g., ap-south-1).
+  ECS_CLUSTER_NAME: my-mern-cluster  # The name of your ECS Cluster.
+  ECS_SERVICE_NAME: my-mern-service  # The name of your ECS Service.
 
-  # If your Dockerfile is not in the project root, provide its path here.
-  # Dockerfile_PATH: ./path/to/your/Dockerfile
-  # If it's in the root, leave this commented out. The build command will use '.' automatically.
+  # --- Frontend Configuration ---
+  FRONTEND_ECR_REPOSITORY_NAME: my-mern-app-frontend   # ECR repository for frontend.
+  FRONTEND_CONTAINER_NAME: my-mern-frontend-container  # Name of frontend container in Task Definition.
+  FRONTEND_DOCKERFILE_PATH: ./frontend                 # Path to frontend Dockerfile directory.
 
+  # --- Backend Configuration ---
+  BACKEND_ECR_REPOSITORY_NAME: my-mern-app-backend     # ECR repository for backend.
+  BACKEND_CONTAINER_NAME: my-mern-backend-container    # Name of backend container in Task Definition.
+  BACKEND_DOCKERFILE_PATH: ./backend                   # Path to backend Dockerfile directory.
+  
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -27,39 +31,49 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.ACCESS_KEY_ID }} # GitHub Secret
-          aws-secret-access-key: ${{ secrets.SECRET_ACCESS_KEY }} # GitHub Secret
+          aws-access-key-id: ${{ secrets.ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and Push Docker Image to ECR
-        id: build-push
+      # === Build and Push Frontend Image ===
+      - name: Build and Push Frontend Docker Image to ECR
+        id: build-push-frontend
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }} # Use the commit SHA as the image tag for versioning
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          # Use the Dockerfile_PATH variable if your Dockerfile is not in the project root.
-          # Otherwise, the default context is '.' (current directory).
-          DOCKER_BUILD_CONTEXT=${{ env.Dockerfile_PATH || '.' }}
+          echo "Building Frontend Docker image from context: ${{ env.FRONTEND_DOCKERFILE_PATH }}"
+          docker build -t $ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY_NAME:$IMAGE_TAG ${{ env.FRONTEND_DOCKERFILE_PATH }}
           
-          echo "Building Docker image from context: $DOCKER_BUILD_CONTEXT"
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_NAME:$IMAGE_TAG $DOCKER_BUILD_CONTEXT
+          echo "Pushing Frontend Docker image to ECR..."
+          docker push $ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY_NAME:$IMAGE_TAG
           
-          echo "Pushing Docker image to ECR..."
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY_NAME:$IMAGE_TAG
+          echo "FRONTEND_IMAGE_URI=$ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY_NAME:$IMAGE_TAG" >> $GITHUB_ENV
+
+      # === Build and Push Backend Image ===
+      - name: Build and Push Backend Docker Image to ECR
+        id: build-push-backend
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          echo "Building Backend Docker image from context: ${{ env.BACKEND_DOCKERFILE_PATH }}"
+          docker build -t $ECR_REGISTRY/$BACKEND_ECR_REPOSITORY_NAME:$IMAGE_TAG ${{ env.BACKEND_DOCKERFILE_PATH }}
           
-          # Store the full image URI in an environment variable for subsequent steps
-          echo "IMAGE_URI=$ECR_REGISTRY/$ECR_REPOSITORY_NAME:$IMAGE_TAG" >> $GITHUB_ENV
+          echo "Pushing Backend Docker image to ECR..."
+          docker push $ECR_REGISTRY/$BACKEND_ECR_REPOSITORY_NAME:$IMAGE_TAG
+          
+          echo "BACKEND_IMAGE_URI=$ECR_REGISTRY/$BACKEND_ECR_REPOSITORY_NAME:$IMAGE_TAG" >> $GITHUB_ENV
 
       - name: Generate and Register New ECS Task Definition
         id: register-task-definition
         run: |
           echo "Attempting to fetch existing active task definition for service: ${{ env.ECS_SERVICE_NAME }}"
           
-          # Retrieve the ARN of the current active task definition associated with the ECS Service.
           CURRENT_TASK_DEF_ARN=$(aws ecs describe-services \
                                 --cluster "${{ env.ECS_CLUSTER_NAME }}" \
                                 --services "${{ env.ECS_SERVICE_NAME }}" \
@@ -74,13 +88,11 @@ jobs:
 
           echo "Found current task definition ARN: $CURRENT_TASK_DEF_ARN"
           
-          # Fetch the full JSON of the current active task definition.
           TASK_DEF_JSON=$(aws ecs describe-task-definition \
                           --task-definition "$CURRENT_TASK_DEF_ARN" \
                           --query 'taskDefinition' \
                           --output json)
           
-          # Validate that the fetched JSON is valid and contains container definitions.
           if [ -z "$TASK_DEF_JSON" ] || ! echo "$TASK_DEF_JSON" | jq -e '.containerDefinitions | type == "array"' > /dev/null; then
             echo "Error: Could not retrieve valid task definition or container definitions from current ARN."
             exit 1
@@ -88,16 +100,18 @@ jobs:
 
           echo "Original Task Definition JSON fetched successfully."
 
-          # Update the container definition with the new image URI using 'jq'.
-          # The 'CONTAINER_NAME' environment variable must exactly match the name in your Task Definition.
-          # Remove transient fields like taskDefinitionArn, revision, status, etc., as they are automatically generated.
+          # Dynamically update both frontend and backend container images
           UPDATED_TASK_DEF=$(echo "$TASK_DEF_JSON" | jq \
-            --arg CONTAINER_NAME "${{ env.CONTAINER_NAME }}" \
-            --arg IMAGE_URI "${{ env.IMAGE_URI }}" \
+            --arg FRONTEND_CONTAINER_NAME "${{ env.FRONTEND_CONTAINER_NAME }}" \
+            --arg FRONTEND_IMAGE_URI "${{ env.FRONTEND_IMAGE_URI }}" \
+            --arg BACKEND_CONTAINER_NAME "${{ env.BACKEND_CONTAINER_NAME }}" \
+            --arg BACKEND_IMAGE_URI "${{ env.BACKEND_IMAGE_URI }}" \
             '
             .containerDefinitions |= map(
-              if .name == $CONTAINER_NAME then
-                .image = $IMAGE_URI
+              if .name == $FRONTEND_CONTAINER_NAME then
+                .image = $FRONTEND_IMAGE_URI
+              elif .name == $BACKEND_CONTAINER_NAME then
+                .image = $BACKEND_IMAGE_URI
               else
                 .
               end
@@ -109,24 +123,22 @@ jobs:
             | del(.requiresAttributes)'
           )
 
-          echo "Updated Task Definition JSON with new image URI."
+          echo "Updated Task Definition JSON with new image URIs for both containers."
           
-          # Register the new task definition revision with AWS ECS.
           REGISTERED_TASK_DEF=$(aws ecs register-task-definition --cli-input-json "$UPDATED_TASK_DEF")
           NEW_TASK_DEF_ARN=$(echo "$REGISTERED_TASK_DEF" | jq -r '.taskDefinition.taskDefinitionArn')
 
           echo "Registered new task definition ARN: $NEW_TASK_DEF_ARN"
-          # Make the new Task Definition ARN available to subsequent steps.
           echo "TASK_DEFINITION_ARN=$NEW_TASK_DEF_ARN" >> $GITHUB_ENV
 
       - name: Update ECS Service
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
-          task-definition: ${{ env.TASK_DEFINITION_ARN }} # Use the ARN of the newly registered task definition
+          task-definition: ${{ env.TASK_DEFINITION_ARN }}
           service: ${{ env.ECS_SERVICE_NAME }}
           cluster: ${{ env.ECS_CLUSTER_NAME }}
-          wait-for-service-stability: true # Wait for the deployment to complete and become stable
+          wait-for-service-stability: true
           
       - name: Cleanup old Docker images (optional, for GitHub Actions runner)
-        if: always() # Run this step regardless of previous step failures
+        if: always()
         run: docker system prune -af
