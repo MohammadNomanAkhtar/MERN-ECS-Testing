@@ -7,20 +7,19 @@ on:
 
 env:
   # === AWS Configuration (Update these values with your actual AWS details) ===
-  AWS_REGION: us-east-1              # Your AWS region (e.g., ap-south-1).
+  AWS_REGION: us-east-1             # Your AWS region (e.g., ap-south-1).
   
   # === ECS Cluster Configuration ===
   ECS_CLUSTER_NAME: my-mern-cluster  # The name of your ECS Cluster.
 
   # === ECS Service Configuration ===
   ECS_SERVICE_NAME: my-mern-service  # The name of your ECS Service.
-  VPC_ID: vpc-0aac057eb5e51b176      # YOUR VPC ID
+  VPC_ID: vpc-0aac057eb5e51b176     # YOUR VPC ID
   SUBNET_IDS: subnet-007bea8f5c9577c4d,subnet-0d7e4d955f8d33774 # YOUR SUBNET IDs (comma-separated)
   SECURITY_GROUP_IDS: sg-00e2ebce3a7b1531f # YOUR SECURITY GROUP ID
 
   # === Task Definition Configuration ===
   ECS_TASK_EXECUTION_ROLE_ARN: arn:aws:iam::678878256416:role/ecsTaskExecutionRole # Your provided Execution Role ARN
-  # ECS_TASK_ROLE_ARN: Removed as per your request.
   TASK_CPU: 2048 # 2vCPU
   TASK_MEMORY: 4096 # 4GB
 
@@ -35,7 +34,7 @@ env:
   BACKEND_ECR_REPOSITORY_NAME: my-mern-app-backend
   BACKEND_CONTAINER_NAME: my-mern-backend-container
   BACKEND_DOCKERFILE_PATH: ./mern/backend
-  BACKEND_CONTAINER_PORT: 5050 # <--- Changed from 5050 to 5050 as per your earlier info
+  BACKEND_CONTAINER_PORT: 5050
   BACKEND_HEALTH_CHECK_PATH: /health # Path for container health check (adjust if needed)
   
 jobs:
@@ -168,11 +167,11 @@ jobs:
                     }
                   },
                   "healthCheck": {
-                    "command": ["CMD-SHELL", "curl -f http://localhost:\($frontend_port)/ || exit 1"],
+                    "command": ["CMD-SHELL", "curl -f http://localhost:\($frontend_port)$frontend_health_path || exit 1"],
                     "interval": 30,
                     "timeout": 5,
                     "retries": 3,
-                    "startPeriod": 15
+                    "startPeriod": 30 # Increased startPeriod
                   }
                 },
                 {
@@ -207,11 +206,11 @@ jobs:
                     }
                   },
                   "healthCheck": {
-                    "command": ["CMD-SHELL", "curl -f http://localhost:\($backend_port)/health || exit 1"],
+                    "command": ["CMD-SHELL", "curl -f http://localhost:\($backend_port)$backend_health_path || exit 1"],
                     "interval": 30,
                     "timeout": 5,
                     "retries": 3,
-                    "startPeriod": 15
+                    "startPeriod": 30 # Increased startPeriod
                   }
                 }
               ]
