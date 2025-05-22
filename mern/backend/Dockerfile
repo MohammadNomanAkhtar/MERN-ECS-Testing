@@ -1,3 +1,18 @@
+# Stage 1: Install dependencies and build if necessary
+FROM node:20-alpine AS build
+
+WORKDIR /app
+
+# Copy package.json and package-lock.json first
+COPY package*.json ./
+
+# Install production dependencies
+# If your backend has a 'build' step (e.g., TypeScript compilation), add it here
+RUN npm install --production
+
+# Copy the rest of your app's source code
+COPY . .
+
 # Stage 2: Run the application
 FROM node:20-alpine AS production
 
