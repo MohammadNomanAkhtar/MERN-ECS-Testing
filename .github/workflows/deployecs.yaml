@@ -144,6 +144,7 @@ jobs:
               "cpu": $task_cpu,
               "memory": $task_memory,
               "executionRoleArn": $execution_role,
+              "taskRoleArn": $execution_role,  # <--- NEW LINE ADDED HERE
               "containerDefinitions": [
                 {
                   "name": $frontend_name,
