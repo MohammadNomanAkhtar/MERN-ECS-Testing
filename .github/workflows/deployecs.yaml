@@ -243,7 +243,7 @@ jobs:
               --desired-count 1 \
               --force-new-deployment \
               --health-check-grace-period 300 \
-              --enable-execute-command \ # --- Added this line for ECS Exec ---
+              --enable-execute-command \
               --region ${{ env.AWS_REGION }}
             echo "ECS Service updated."
           else
@@ -257,7 +257,7 @@ jobs:
               --network-configuration "awsvpcConfiguration={subnets=[${{ env.SUBNET_IDS }}],securityGroups=[${{ env.SECURITY_GROUP_IDS }}],assignPublicIp=ENABLED}" \
               --platform-version "LATEST" \
               --health-check-grace-period 300 \
-              --enable-execute-command \ # --- Added this line for ECS Exec ---
+              --enable-execute-command \
               --region ${{ env.AWS_REGION }}
             echo "ECS Service created."
           fi
