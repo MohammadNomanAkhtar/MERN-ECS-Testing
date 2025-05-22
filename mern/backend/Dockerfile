@@ -15,7 +15,7 @@ COPY . .
 
 # Stage 2: Run the application
 # Yahan 'node:20-alpine' hi aayega, 'build' nahi.
-FROM node:20-alpine AS production # <--- YE LINE SAHI HAI, PEHLE BHI YAHI LIKHI THI, ABHI CONFIRM KARO
+FROM node:20-alpine AS production # <--- IS COMMENT KO HATA DEIN IS LINE SE
 
 WORKDIR /app
 
