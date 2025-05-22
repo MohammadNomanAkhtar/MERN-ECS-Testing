@@ -1,16 +1,32 @@
-# Stage 2: Run the application
+# Stage 1: Install dependencies and build if necessary
+FROM node:20-alpine AS build
+
+WORKDIR /app
+
+# Copy package.json and package-lock.json first
+COPY package*.json ./
+
+# Install production dependencies
+# If your backend has a 'build' step (e.g., TypeScript compilation), add it here
+RUN npm install --production
+
+# Copy the rest of your app's source code
+COPY . .
+
+# Stage 2: Run the application (SIRF EK BAAR YEHI SECTION)
 FROM node:20-alpine AS production
 
 WORKDIR /app
 
 # Copy only the necessary files from the build stage
+# This includes node_modules and your application code
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app .
 
 # Expose the port your backend Express/Node.js app listens on
 EXPOSE 5050
 
-# --- TEMPORARY DEBUGGING LINES START ---
+# --- TEMPORARY DEBUGGING LINES START (Inko yahan rakhna hai) ---
 # Ensure curl is available in the production image
 RUN apk add --no-cache curl
 
