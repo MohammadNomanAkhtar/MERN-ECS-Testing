@@ -168,9 +168,9 @@ jobs:
                   },
                   "healthCheck": {
                     "command": ["CMD-SHELL", "curl -f http://localhost:\($frontend_port)$frontend_health_path || exit 1"],
-                    "interval": 30,
-                    "timeout": 5,
-                    "retries": 3,
+                    "interval": 60,
+                    "timeout": 30,
+                    "retries": 5,
                     "startPeriod": 300 # Increased startPeriod to 300 seconds
                   }
                 },
