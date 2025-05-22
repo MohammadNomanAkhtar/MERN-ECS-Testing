@@ -128,11 +128,9 @@ jobs:
             --arg frontend_name "${{ env.FRONTEND_CONTAINER_NAME }}" \
             --arg frontend_image "$FRONTEND_IMAGE_URI" \
             --arg frontend_port "${{ env.FRONTEND_CONTAINER_PORT }}" \
-            --arg frontend_health_path "${{ env.FRONTEND_HEALTH_CHECK_PATH }}" \
             --arg backend_name "${{ env.BACKEND_CONTAINER_NAME }}" \
             --arg backend_image "$BACKEND_IMAGE_URI" \
             --arg backend_port "${{ env.BACKEND_CONTAINER_PORT }}" \
-            --arg backend_health_path "${{ env.BACKEND_HEALTH_CHECK_PATH }}" \
             --arg task_cpu "${{ env.TASK_CPU }}" \
             --arg task_memory "${{ env.TASK_MEMORY }}" \
             --arg execution_role "${{ env.ECS_TASK_EXECUTION_ROLE_ARN }}" \
@@ -144,7 +142,7 @@ jobs:
               "cpu": $task_cpu,
               "memory": $task_memory,
               "executionRoleArn": $execution_role,
-              "taskRoleArn": $execution_role,  # <--- NEW LINE ADDED HERE
+              "taskRoleArn": $execution_role, # Keep this line for now, as it was added for a previous error
               "containerDefinitions": [
                 {
                   "name": $frontend_name,
@@ -168,7 +166,7 @@ jobs:
                     }
                   },
                   "healthCheck": {
-                    "command": ["CMD-SHELL", "curl -f http://localhost:\($frontend_port)$frontend_health_path || exit 1"],
+                    "command": ["CMD-SHELL", "curl -f http://localhost:\($frontend_port)/ || exit 1"], # Path fixed here
                     "interval": 60,
                     "timeout": 30,
                     "retries": 5,
@@ -206,11 +204,11 @@ jobs:
                       "awslogs-stream-prefix": "backend"
                     }
                   },
-                  "healthCheck": { # Backend health check settings adjusted
-                    "command": ["CMD-SHELL", "curl -f http://localhost:\($backend_port)$backend_health_path || exit 1"],
-                    "interval": 60,   # Changed from 30 to 60
-                    "timeout": 30,    # Changed from 5 to 30
-                    "retries": 5,     # Changed from 3 to 5
+                  "healthCheck": {
+                    "command": ["CMD-SHELL", "curl -f http://localhost:\($backend_port)/health || exit 1"], # Path fixed here
+                    "interval": 60,
+                    "timeout": 30,
+                    "retries": 5,
                     "startPeriod": 300
                   }
                 }
