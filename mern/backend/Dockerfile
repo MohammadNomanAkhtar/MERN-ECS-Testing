@@ -7,7 +7,6 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install production dependencies
-# If your backend has a 'build' step (e.g., TypeScript compilation), add it here
 RUN npm install --production
 
 # Copy the rest of your app's source code
@@ -25,14 +24,9 @@ COPY --from=build /app .
 # Expose the port your backend Express/Node.js app listens on
 EXPOSE 5050
 
-# --- TEMPORARY DEBUGGING LINES START ---
-# Ensure curl is available in the production image
+# --- REMOVE ALL TEMPORARY DEBUGGING LINES HERE ---
+# Ensure curl is available in the production image (Agar zaroori ho toh yeh line permanent rakh sakte hain)
 RUN apk add --no-cache curl
 
-# Run the health check command directly, then start the server
-# INCREASE SLEEP DURATION HERE (e.g., 15 or 20 seconds)
-CMD ["/bin/sh", "-c", "echo 'Waiting 20 seconds before pre-start health check...'; sleep 20; echo 'Running verbose pre-start health check...'; curl -v -f http://localhost:5050/health && echo 'Pre-start health check passed, starting server...' && npm start || (echo 'Pre-start health check failed, exiting with curl output.'; exit 1)"]
-# --- TEMPORARY DEBUGGING LINES END ---
-
-# Original CMD (commented out for debugging)
-# CMD ["npm", "start"]
+# Command to run the backend server in the foreground (YEHI ASLI CMD HAI)
+CMD ["npm", "start"]
