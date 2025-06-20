@@ -10,13 +10,13 @@ env:
   AWS_REGION: us-east-1           # Your AWS region (e.g., ap-south-1).
   
   # === ECS Cluster Configuration ===
-  ECS_CLUSTER_NAME: my-mern-cluster # The name of your ECS Cluster.
+  ECS_CLUSTER_NAME: Noman-ECS-testing-cluster # The name of your ECS Cluster.
 
   # === ECS Service Configuration ===
-  ECS_SERVICE_NAME: my-mern-service # The name of your ECS Service.
+  ECS_SERVICE_NAME: ECS-service-MERN # The name of your ECS Service.
   VPC_ID: vpc-0aac057eb5e51b176    # YOUR VPC ID
   SUBNET_IDS: subnet-007bea8f5c9577c4d,subnet-0d7e4d955f8d33774 # YOUR SUBNET IDs (comma-separated)
-  SECURITY_GROUP_IDS: sg-00e2ebce3a7b1531f # YOUR SECURITY GROUP ID
+  SECURITY_GROUP_IDS: sg-0108e3686a5437415 # YOUR SECURITY GROUP ID
 
   # === Task Definition Configuration ===
   ECS_TASK_EXECUTION_ROLE_ARN: arn:aws:iam::678878256416:role/ecsTaskExecutionRole # Your provided Execution Role ARN
@@ -24,15 +24,15 @@ env:
   TASK_MEMORY: 4096 # 4GB
 
   # --- Frontend Configuration ---
-  FRONTEND_ECR_REPOSITORY_NAME: my-mern-app-frontend
-  FRONTEND_CONTAINER_NAME: my-mern-frontend-container
+  FRONTEND_ECR_REPOSITORY_NAME: noman-mern-app-frontend
+  FRONTEND_CONTAINER_NAME: noman-mern-frontend-container
   FRONTEND_DOCKERFILE_PATH: ./mern/frontend
   FRONTEND_CONTAINER_PORT: 5173 # Make sure your Dockerfile EXPOSEs this port
   FRONTEND_HEALTH_CHECK_PATH: / # Path for container health check (adjust if needed)
 
   # --- Backend Configuration ---
-  BACKEND_ECR_REPOSITORY_NAME: my-mern-app-backend
-  BACKEND_CONTAINER_NAME: my-mern-backend-container
+  BACKEND_ECR_REPOSITORY_NAME: noman-mern-app-backend
+  BACKEND_CONTAINER_NAME: noman-mern-backend-container
   BACKEND_DOCKERFILE_PATH: ./mern/backend
   BACKEND_CONTAINER_PORT: 5050
   BACKEND_HEALTH_CHECK_PATH: /health # Path for container health check (adjust if needed)
