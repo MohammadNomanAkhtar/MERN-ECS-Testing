@@ -20,8 +20,8 @@ env:
 
   # === Task Definition Configuration ===
   ECS_TASK_EXECUTION_ROLE_ARN: arn:aws:iam::678878256416:role/ecsTaskExecutionRole # Your provided Execution Role ARN
-  TASK_CPU: 2048 # 2vCPU
-  TASK_MEMORY: 4096 # 4GB
+  TASK_CPU: 4096 # 2vCPU
+  TASK_MEMORY: 8192 # 4GB
 
   # --- Frontend Configuration ---
   FRONTEND_ECR_REPOSITORY_NAME: noman-mern-app-frontend
