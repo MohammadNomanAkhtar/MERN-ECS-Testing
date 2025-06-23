@@ -209,7 +209,7 @@ jobs:
                     "interval": 60,
                     "timeout": 30,
                     "retries": 5,
-                    "startPeriod": 300
+                    "startPeriod": 250
                   }
                 }
               ]
